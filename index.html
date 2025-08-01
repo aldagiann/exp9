@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pirámides rebote sin bloom</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
+<script>
+  // Setup básico
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.z = 20;
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // Luces
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(10, 10, 10);
+  scene.add(ambientLight);
+  scene.add(directionalLight);
+
+  // Pirámides, velocidades y posiciones iniciales
+  const pyramids = [];
+  const velocities = [];
+
+  const limit = 10; // límite de rebote en posición
+
+  for(let i = 0; i < 3; i++) {
+    const geometry = new THREE.TetrahedronGeometry(2.1, 2); // tamaño aumentado + subdivisión
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(`hsl(${Math.random()*360}, 100%, 60%)`),
+      roughness: 0.3,
+      metalness: 0.7,
+      transparent: true,
+      opacity: 0.6,
+      emissive: new THREE.Color(`hsl(${Math.random()*360}, 100%, 30%)`),
+      emissiveIntensity: 1.0,
+    });
+    const pyramid = new THREE.Mesh(geometry, material);
+    pyramid.position.set((Math.random()-0.5)*limit*1.5, (Math.random()-0.5)*limit*1.5, (Math.random()-0.5)*limit*1.5);
+    scene.add(pyramid);
+    pyramids.push(pyramid);
+
+    velocities.push({
+      x: (Math.random()*0.12 - 0.06),
+      y: (Math.random()*0.12 - 0.06),
+      z: (Math.random()*0.12 - 0.06)
+    });
+  }
+
+  // Rebote simple en los 3 ejes
+  function bounce(obj, velocity) {
+    ['x','y','z'].forEach(axis => {
+      if (obj.position[axis] > limit) {
+        obj.position[axis] = limit;
+        velocity[axis] *= -1;
+      }
+      if (obj.position[axis] < -limit) {
+        obj.position[axis] = -limit;
+        velocity[axis] *= -1;
+      }
+    });
+  }
+
+  // Función para detectar distancia entre pirámides
+  function distance(a, b) {
+    return a.position.distanceTo(b.position);
+  }
+
+  // Animación
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Movimiento + rebote + rotación
+    for(let i = 0; i < pyramids.length; i++) {
+      const p = pyramids[i];
+      const v = velocities[i];
+
+      p.position.x += v.x;
+      p.position.y += v.y;
+      p.position.z += v.z;
+
+      bounce(p, v);
+
+      p.rotation.x += 0.02;
+      p.rotation.y += 0.02;
+    }
+
+    // Fusión fractal simplificada (cuando se acercan)
+    // Para simplificar el efecto, hacemos que al acercarse se escalen lentamente y giren más lento
+    for(let i = 0; i < pyramids.length; i++) {
+      for(let j = i+1; j < pyramids.length; j++) {
+        const dist = distance(pyramids[i], pyramids[j]);
+        if(dist < 2.5) {
+          // Reducir velocidad de giro
+          pyramids[i].rotation.x *= 0.95;
+          pyramids[i].rotation.y *= 0.95;
+          pyramids[j].rotation.x *= 0.95;
+          pyramids[j].rotation.y *= 0.95;
+          // Incrementar tamaño lentamente
+          pyramids[i].scale.multiplyScalar(1.002);
+          pyramids[j].scale.multiplyScalar(1.002);
+        }
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+</body>
+</html>
